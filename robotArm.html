@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+
+<!-- Based on http://www.cs.toronto.edu/~jacobson/phong-demo/ -->
+<script id="vertex-shader" type="x-shader/x-vertex">
+attribute  vec4 vPosition;
+attribute  vec3 vNormal;
+
+varying vec3 normalInterpolation;
+varying vec3 vertexPosition; // In camera space
+
+uniform mat4 modelViewMatrix;
+uniform mat4 normalMatrix;
+uniform mat4 projectionMatrix;
+
+void main()
+{
+    vec4 vertexPosition4 = modelViewMatrix * vPosition;
+    vertexPosition = vec3(vertexPosition4) / vertexPosition4.w;
+
+    normalInterpolation = vec3(normalMatrix * vec4(vNormal, 0));
+
+    gl_Position = projectionMatrix * vertexPosition4;
+}
+</script>
+<script id="fragment-shader" type="x-shader/x-fragment">
+
+precision mediump float;
+
+varying vec3 normalInterpolation;
+varying vec3 vertexPosition; // In camera space
+
+uniform vec3 lightPosition;
+
+uniform vec3 La; // Light ambient energy coefficient
+uniform vec3 Ld; // Light diffuse energy coefficient
+uniform vec3 Ls; // Light specular energy coefficient
+
+uniform vec3 Ka;   // Material ambient reflection coefficient
+uniform vec3 Kd;   // Material diffuse reflection coefficient
+uniform vec3 Ks;   // Material specular reflection coefficient
+uniform float shininess;
+
+void main()
+{
+    vec3 N = normalize(normalInterpolation);
+    vec3 L = normalize(lightPosition - vertexPosition); // Vector from vertex to light position
+
+    float specular = 0.0;
+    float lambertian = max(dot(N,L), 0.0);
+
+    if (lambertian > 0.0) {
+        vec3 R = reflect(-L,N); // For reflect(), the incident vector should point toward the surface
+        vec3 V = normalize(-vertexPosition); // Vector from vertex to viewer position
+        float specularAngleCos = max(dot(R,V), 0.0);
+        specular = pow(specularAngleCos, shininess);
+    }
+
+    // The ambient, diffuse and specular coefficients of the light source are assumed to be 1
+    gl_FragColor = vec4(Ka * La +
+                      Kd * Ld * lambertian +
+                      Ks * Ls * specular, 1.0);
+}
+</script>
+
+<script type="text/javascript" src="webgl-utils.js"></script>
+<script type="text/javascript" src="initShaders.js"></script>
+<script type="text/javascript" src="MV.js"></script>
+<script type="text/javascript" src="Cube.js"></script>
+<script type="text/javascript" src="Cylinder.js"></script>
+<script type="text/javascript" src="robotArm.js"></script>
+
+<div>
+    body angle -180 <input id="slider1" type="range" min="-180" max="180" step="1" value="0" />
+    180
+</div><br />
+
+<div>
+    lower arm angle -180 <input id="slider2" type="range" min="-180" max="180" step="1" value="0" />
+    180
+</div><br />
+
+<div>
+    upper arm angle -180 <input id="slider3" type="range" min="-180" max="180" step="1" value="0" />
+    180
+</div><br />
+
+<div>
+    <label for="topview">Top view</label>  <input id="topview" type="checkbox" />
+</div><br />
+
+<body>
+    <canvas id="gl-canvas" width="700" height="700" style="border: 1px solid #333">
+        Oops ... your browser doesn't support the HTML5 canvas element
+    </canvas>
+</body>
+
+</html>
