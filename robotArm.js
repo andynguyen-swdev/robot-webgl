@@ -2,35 +2,6 @@
 
 var canvas, gl, program;
 
-var NumVertices = 36; //(6 faces)(2 triangles/face)(3 vertices/triangle)
-
-var points = [];
-var colors = [];
-
-var vertices = [
-    vec4(-0.5, -0.5, 0.5, 1.0),
-    vec4(-0.5, 0.5, 0.5, 1.0),
-    vec4(0.5, 0.5, 0.5, 1.0),
-    vec4(0.5, -0.5, 0.5, 1.0),
-    vec4(-0.5, -0.5, -0.5, 1.0),
-    vec4(-0.5, 0.5, -0.5, 1.0),
-    vec4(0.5, 0.5, -0.5, 1.0),
-    vec4(0.5, -0.5, -0.5, 1.0)
-];
-
-// RGBA colors
-var vertexColors = [
-    vec4(0.0, 0.0, 0.0, 1.0),  // black
-    vec4(1.0, 0.0, 0.0, 1.0),  // red
-    vec4(1.0, 1.0, 0.0, 1.0),  // yellow
-    vec4(0.0, 1.0, 0.0, 1.0),  // green
-    vec4(0.0, 0.0, 1.0, 1.0),  // blue
-    vec4(1.0, 0.0, 1.0, 1.0),  // magenta
-    vec4(1.0, 1.0, 1.0, 1.0),  // white
-    vec4(0.0, 1.0, 1.0, 1.0)   // cyan
-];
-
-
 // Parameters controlling the size of the Robot's arm
 
 var BASE_HEIGHT = 0.5;
@@ -39,53 +10,32 @@ var LOWER_ARM_HEIGHT = 2;
 var LOWER_ARM_WIDTH = 0.3;
 var UPPER_ARM_HEIGHT = 2;
 var UPPER_ARM_WIDTH = 0.3;
+var SPHERE_RADIUS = 0.15;
 
 // Shader transformation matrices
 
 var baseModelViewMatrix, modelViewMatrix, projectionMatrix;
 
 // Array of rotation angles (in degrees) for each rotation axis
-
 var Base = 0;
 var LowerArm = 1;
 var UpperArm = 2;
 
-
 var theta = [0, 0, 0];
 
-var angle = 0;
+var sphereX, sphereY, sphereZ;
+var sphereAttached = false;
+var startAngles, endAngles;
+
+var lastTime;
+var animationDuration;
+var animationEndedCallback;
+var animationStartTime;
 
 var modelViewMatrixLoc, normalMatrixLoc, shininessLoc, ambientCoefLoc, diffuseCoefLoc, specularCoefLoc, lightPositionLoc;
 
 var vBuffer, nBuffer;
 var vPosition, vNormal;
-
-//----------------------------------------------------------------------------
-
-function quad(a, b, c, d) {
-    colors.push(vertexColors[a]);
-    points.push(vertices[a]);
-    colors.push(vertexColors[a]);
-    points.push(vertices[b]);
-    colors.push(vertexColors[a]);
-    points.push(vertices[c]);
-    colors.push(vertexColors[a]);
-    points.push(vertices[a]);
-    colors.push(vertexColors[a]);
-    points.push(vertices[c]);
-    colors.push(vertexColors[a]);
-    points.push(vertices[d]);
-}
-
-
-function colorCube() {
-    quad(1, 0, 3, 2);
-    quad(2, 3, 7, 6);
-    quad(3, 0, 4, 7);
-    quad(6, 5, 1, 2);
-    quad(4, 5, 6, 7);
-    quad(5, 4, 0, 1);
-}
 
 //____________________________________________
 
@@ -122,7 +72,6 @@ window.onload = function init() {
 
     gl.useProgram(program);
 
-    colorCube();
 
     // Load shaders and use the resulting shader program
 
@@ -139,17 +88,27 @@ window.onload = function init() {
     vNormal = gl.getAttribLocation(program, "vNormal");
     gl.enableVertexAttribArray(vNormal);
 
-    document.getElementById("slider1").oninput = function (event) {
-        theta[0] = event.target.value;
-    };
-    document.getElementById("slider2").oninput = function (event) {
-        theta[1] = event.target.value;
-    };
-    document.getElementById("slider3").oninput = function (event) {
-        theta[2] = event.target.value;
-    };
-    document.getElementById("topview").onchange = function (event) {
-        setTopView(event.target.checked);
+    // document.getElementById("slider1").oninput = function (event) {
+    //     theta[0] = event.target.value / 180 * Math.PI;
+    // };
+    // document.getElementById("slider2").oninput = function (event) {
+    //     theta[1] = event.target.value / 180 * Math.PI;
+    // };
+    // document.getElementById("slider3").oninput = function (event) {
+    //     theta[2] = event.target.value / 180 * Math.PI;
+    // };
+
+    document.getElementById("topview").onchange = function (event) { setTopView(event.target.checked); }
+    document.getElementById("fetch").onclick = function () {
+        let coords = [
+            document.getElementById("old_x").value,
+            document.getElementById("old_y").value,
+            document.getElementById("old_z").value,
+            document.getElementById("new_x").value,
+            document.getElementById("new_y").value,
+            document.getElementById("new_z").value];
+        coords = coords.map(value => parseFloat(value));
+        fetchSphere(...coords);
     }
 
     modelViewMatrixLoc = gl.getUniformLocation(program, "modelViewMatrix");
@@ -210,6 +169,76 @@ function setTopView(isTopView) {
     } else {
         baseModelViewMatrix = translate(0, 0, -5);
     }
+}
+
+function fetchSphere(oldX, oldY, oldZ, newX, newY, newZ) {
+    const oldAngles = calculateAngles(oldX, oldY, oldZ);
+    for (let angle of oldAngles) {
+        if (isNaN(angle)) {
+            alert(`The position (${oldX}, ${oldY}, ${oldZ}) is unreachable.`);
+            return;
+        }
+    }
+
+    const newAngles = calculateAngles(newX, newY, newZ);
+    for (let angle of newAngles) {
+        if (isNaN(angle)) {
+            alert(`The position (${newX}, ${newY}, ${newZ}) is unreachable.`);
+            return;
+        }
+    }
+
+    startAngles = [0, 0, 0];
+    endAngles = oldAngles;
+    sphereX = oldX;
+    sphereY = oldY;
+    sphereZ = oldZ;
+    sphereAttached = false;
+
+    startRotationAnimation(1000, 200, () => {
+        sphereAttached = true;
+        startAngles = oldAngles;
+        endAngles = newAngles;
+
+        startRotationAnimation(1000, 200, () => {
+            sphereAttached = false;
+            sphereX = newX;
+            sphereY = newY;
+            sphereZ = newZ;
+            startAngles = newAngles;
+            endAngles = [0, 0, 0];
+
+            startRotationAnimation(1000, 200);
+        })
+    })
+}
+
+function startRotationAnimation(duration, delay, callback) {
+    animationStartTime = lastTime + delay;
+    animationDuration = duration;
+    animationEndedCallback = callback;
+}
+
+function calculateAngles(x, y, z) {
+    const angles = new Array(3);
+
+    y = y - BASE_HEIGHT;
+    angles[Base] = -Math.atan2(z, x);
+
+    const horizontalDistanceSquared = z * z + x * x;
+    const distance = Math.sqrt(y * y + horizontalDistanceSquared);
+
+    const groundToSphere = Math.atan2(y, Math.sqrt(horizontalDistanceSquared));
+
+    const lowerArmToSphereCos = (LOWER_ARM_HEIGHT * LOWER_ARM_HEIGHT + distance * distance - (UPPER_ARM_HEIGHT + SPHERE_RADIUS) * (UPPER_ARM_HEIGHT + SPHERE_RADIUS)) / (2 * LOWER_ARM_HEIGHT * distance);
+    const lowerArmToSphere = Math.acos(parseFloat(lowerArmToSphereCos.toFixed(6)));
+    angles[LowerArm] = -(Math.PI / 2 - groundToSphere - lowerArmToSphere);
+
+    const upperArmToLowerArmCos = (LOWER_ARM_HEIGHT * LOWER_ARM_HEIGHT + (UPPER_ARM_HEIGHT + SPHERE_RADIUS) * (UPPER_ARM_HEIGHT + SPHERE_RADIUS) - distance * distance) / (2 * LOWER_ARM_HEIGHT * (UPPER_ARM_HEIGHT + SPHERE_RADIUS));
+    const upperArmToLowerArm = Math.acos(parseFloat(upperArmToLowerArmCos.toFixed(6)));
+    angles[UpperArm] = -(Math.PI - upperArmToLowerArm);
+
+    return angles;
 }
 
 //----------------------------------------------------------------------------
@@ -278,24 +307,65 @@ function lowerArm() {
     gl.drawArrays(gl.TRIANGLES, 0, Cube.vertexCount);
 }
 
+function sphereAt(x, y, z) {
+    var s = scale4(SPHERE_RADIUS, SPHERE_RADIUS, SPHERE_RADIUS);
+    var instanceMatrix = mult(translate(x, y, z), s);
+    var t = mult(modelViewMatrix, instanceMatrix);
+
+    gl.uniformMatrix4fv(modelViewMatrixLoc, false, flatten(t));
+    gl.uniformMatrix4fv(normalMatrixLoc, false, flatten(transpose(inverse(t))));
+
+    setVertexPositionsData(Sphere.verts);
+    setVertexNormalData(Sphere.normals);
+
+    setAmbientCoefficients(0.172549019607843, 0.23843137254902, 0.163137254901961);
+    setDiffuseCoefficients(0.172549019607843, 0.23843137254902, 0.163137254901961);
+    setSpecularCoefficients(0.2, 0.2, 0.2);
+    setShininess(2);
+
+    gl.drawArrays(gl.TRIANGLES, 0, Sphere.vertexCount);
+}
+
 //----------------------------------------------------------------------------
 
 
-var render = function () {
+var render = function (time) {
+    lastTime = time;
+    if (animationStartTime != null && animationStartTime <= time) {
+        const elapsed = (time - animationStartTime) / animationDuration;
+        if (elapsed > 1) {
+            animationStartTime = null;
+            theta = [...endAngles];
+            if (animationEndedCallback) animationEndedCallback();
+        } else {
+            for (let i = 0; i < theta.length; i++) {
+                theta[i] = startAngles[i] + (endAngles[i] - startAngles[i]) * elapsed;
+            }
+        }
+    }
+
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    setLightPosition(mult(baseModelViewMatrix, vec4(150, 100, 100, 1)));
+    modelViewMatrix = baseModelViewMatrix;
+    setLightPosition(mult(modelViewMatrix, vec4(150, 100, 100, 1)));
 
-    modelViewMatrix = mult(baseModelViewMatrix, rotate(theta[Base], 0, 1, 0));
+    if (!sphereAttached && sphereX != null && sphereY != null && sphereZ != null)
+        sphereAt(sphereX, sphereY, sphereZ);
+
+    modelViewMatrix = mult(baseModelViewMatrix, rotateYRad(theta[Base]));
     base();
 
     modelViewMatrix = mult(modelViewMatrix, translate(0.0, BASE_HEIGHT, 0.0));
-    modelViewMatrix = mult(modelViewMatrix, rotate(theta[LowerArm], 0, 0, 1));
+    modelViewMatrix = mult(modelViewMatrix, rotateZRad(theta[LowerArm]));
     lowerArm();
 
     modelViewMatrix = mult(modelViewMatrix, translate(0.0, LOWER_ARM_HEIGHT, 0.0));
-    modelViewMatrix = mult(modelViewMatrix, rotate(theta[UpperArm], 0, 0, 1));
+    modelViewMatrix = mult(modelViewMatrix, rotateZRad(theta[UpperArm]));
     upperArm();
+
+    if (sphereAttached) {
+        sphereAt(0, UPPER_ARM_HEIGHT + SPHERE_RADIUS, 0);
+    }
 
     requestAnimFrame(render);
 }

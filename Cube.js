@@ -223,12 +223,4 @@ class Cube {
     ]);
 
     static vertexCount = Cube.verts.length / 3;
-
-    static getColors() {
-        const colors = [];
-        for (let i = 0; i < Cube.vertexCount; i++) {
-            colors.push(66/255, 109/255, 119/255, 1.0);
-        }
-        return new Float32Array(colors);
-    }
 }
