@@ -60,9 +60,7 @@ window.onload = function init() {
     gl = WebGLUtils.setupWebGL(canvas);
     if (!gl) { alert("WebGL isn't available"); }
 
-    gl.viewport(0, 0, canvas.width, canvas.height);
-
-    gl.clearColor(1.0, 1.0, 1.0, 1.0);
+    gl.clearColor(.1, .1, .1, 1.0);
     gl.enable(gl.DEPTH_TEST);
 
     //
@@ -119,8 +117,8 @@ window.onload = function init() {
     specularCoefLoc = gl.getUniformLocation(program, "Ks");
     lightPositionLoc = gl.getUniformLocation(program, "lightPosition");
 
-    projectionMatrix = ortho(-5, 5, -5, 5, -10, 10);
-    gl.uniformMatrix4fv(gl.getUniformLocation(program, "projectionMatrix"), false, flatten(projectionMatrix));
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
 
     gl.uniform3f(gl.getUniformLocation(program, "La"), 1, 1, 1);
     gl.uniform3f(gl.getUniformLocation(program, "Ld"), 1, 1, 1);
@@ -129,6 +127,22 @@ window.onload = function init() {
     setTopView(document.getElementById("topview").checked);
 
     render();
+}
+
+function resizeCanvas() {
+    const container = document.getElementById("canvas-container");
+    canvas.width = container.clientWidth;
+    canvas.height = container.clientHeight;
+    gl.viewport(0, 0, canvas.width, canvas.height);
+
+    const aspectRatio = canvas.width / canvas.height;
+    if (aspectRatio >= 1) {
+        projectionMatrix = ortho(-5 * aspectRatio, 5 * aspectRatio, -5, 5, -10, 10);
+    }
+    else {
+        projectionMatrix = ortho(-5, 5, -5 / aspectRatio, 5 / aspectRatio, -10, 10);
+    }
+    gl.uniformMatrix4fv(gl.getUniformLocation(program, "projectionMatrix"), false, flatten(projectionMatrix));
 }
 
 function setVertexPositionsData(vertexPositions) {

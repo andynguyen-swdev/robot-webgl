@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <html>
 
-<!-- Based on http://www.cs.toronto.edu/~jacobson/phong-demo/ -->
-<script id="vertex-shader" type="x-shader/x-vertex">
+<head>
+    <title>Assignment 4 - Duy Anh Nguyen</title>
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Based on http://www.cs.toronto.edu/~jacobson/phong-demo/ -->
+    <script id="vertex-shader" type="x-shader/x-vertex">
 attribute  vec4 vPosition;
 attribute  vec3 vNormal;
 
@@ -23,7 +27,7 @@ void main()
     gl_Position = projectionMatrix * vertexPosition4;
 }
 </script>
-<script id="fragment-shader" type="x-shader/x-fragment">
+    <script id="fragment-shader" type="x-shader/x-fragment">
 
 precision mediump float;
 
@@ -63,15 +67,17 @@ void main()
 }
 </script>
 
-<script type="text/javascript" src="webgl-utils.js"></script>
-<script type="text/javascript" src="initShaders.js"></script>
-<script type="text/javascript" src="MV.js"></script>
-<script type="text/javascript" src="Cube.js"></script>
-<script type="text/javascript" src="Cylinder.js"></script>
-<script type="text/javascript" src="Sphere.js"></script>
-<script type="text/javascript" src="robotArm.js"></script>
+    <script type="text/javascript" src="webgl-utils.js"></script>
+    <script type="text/javascript" src="initShaders.js"></script>
+    <script type="text/javascript" src="MV.js"></script>
+    <script type="text/javascript" src="Cube.js"></script>
+    <script type="text/javascript" src="Cylinder.js"></script>
+    <script type="text/javascript" src="Sphere.js"></script>
+    <script type="text/javascript" src="robotArm.js"></script>
+</head>
 
-<!-- <div>
+<body>
+    <!-- <div>
     body angle -180 <input id="slider1" type="range" min="-180" max="180" step="1" value="0" />
     180
 </div><br />
@@ -85,26 +91,29 @@ void main()
     180
 </div><br> -->
 
-<div>
-    <label for="topview">Top view</label> <input id="topview" type="checkbox" />
-</div><br />
+    <div id="setting-container">
+        <div>
+            <label for="topview">Top view</label> <input id="topview" type="checkbox" />
+        </div><br />
 
-<div>
-    <label for="old_x">old_x</label> <input type="number" id="old_x" step="0.01">
-    <label for="old_y">old_y</label> <input type="number" id="old_y" step="0.01">
-    <label for="old_z">old_z</label> <input type="number" id="old_z" step="0.01">
-</div><br>
-<div>
-    <label for="new_x">new_x</label> <input type="number" id="new_x" step="0.01">
-    <label for="new_y">new_y</label> <input type="number" id="new_y" step="0.01">
-    <label for="new_z">new_z</label> <input type="number" id="new_z" step="0.01">
-</div><br>
-<div><input type="button" value="Fetch" id="fetch"></div><br>
+        <div>
+            <label for="old_x">old_x</label> <input type="number" id="old_x" step="0.01">
+            <label for="old_y">old_y</label> <input type="number" id="old_y" step="0.01">
+            <label for="old_z">old_z</label> <input type="number" id="old_z" step="0.01">
+        </div><br>
+        <div>
+            <label for="new_x">new_x</label> <input type="number" id="new_x" step="0.01">
+            <label for="new_y">new_y</label> <input type="number" id="new_y" step="0.01">
+            <label for="new_z">new_z</label> <input type="number" id="new_z" step="0.01">
+        </div><br>
+        <div><input type="button" value="Fetch" id="fetch"></div><br>
+    </div>
 
-<body>
-    <canvas id="gl-canvas" width="700" height="700" style="border: 1px solid #333">
-        Oops ... your browser doesn't support the HTML5 canvas element
-    </canvas>
+    <div id="canvas-container">
+        <canvas id="gl-canvas" style="border: 1px solid #333">
+            Oops ... your browser doesn't support the HTML5 canvas element
+        </canvas>
+    </div>
 </body>
 
 </html>
