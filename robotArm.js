@@ -271,7 +271,7 @@ function base() {
 
     setAmbientCoefficients(0.332549019607843, 0.274509803921569, 0.0862745098039216);
     setDiffuseCoefficients(0.332549019607843, 0.274509803921569, 0.0862745098039216);
-    setSpecularCoefficients(0.831372549019608, 0.686274509803922, 0.215686274509804);
+    setSpecularCoefficients(0.831372549019608*1/2, 0.686274509803922*1/2, 0.215686274509804*1/2);
     setShininess(80);
 
     gl.drawArrays(gl.TRIANGLES, 0, Cylinder.vertexCount);
