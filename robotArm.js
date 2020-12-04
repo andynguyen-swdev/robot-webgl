@@ -259,7 +259,7 @@ function calculateAngles(x, y, z) {
 
 
 function base() {
-    var s = scale4(BASE_RADII / 0.5, BASE_HEIGHT, BASE_RADII / 0.5);
+    var s = scale4(BASE_RADII, BASE_HEIGHT, BASE_RADII);
     var instanceMatrix = mult(translate(0.0, 0.5 * BASE_HEIGHT, 0.0), s);
     var t = mult(modelViewMatrix, instanceMatrix);
 
@@ -271,7 +271,7 @@ function base() {
 
     setAmbientCoefficients(0.332549019607843, 0.274509803921569, 0.0862745098039216);
     setDiffuseCoefficients(0.332549019607843, 0.274509803921569, 0.0862745098039216);
-    setSpecularCoefficients(0.831372549019608*1/2, 0.686274509803922*1/2, 0.215686274509804*1/2);
+    setSpecularCoefficients(0.831372549019608 * 1 / 2, 0.686274509803922 * 1 / 2, 0.215686274509804 * 1 / 2);
     setShininess(80);
 
     gl.drawArrays(gl.TRIANGLES, 0, Cylinder.vertexCount);
