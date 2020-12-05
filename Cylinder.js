@@ -1,5 +1,5 @@
 // Model generated from Blender
-// Height = 1, Base radius = 0.5
+// Height = 1, Base radius = 1
 class Cylinder {
 }
 
