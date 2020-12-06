@@ -23,6 +23,8 @@ var UpperArm = 2;
 
 var theta = [0, 0, 0];
 
+var lightPosition = [3, 1.5, 4.5, 1];
+
 var sphereX, sphereY, sphereZ;
 var sphereAttached = false;
 var startAngles, endAngles;
@@ -361,7 +363,7 @@ var render = function (time) {
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
     modelViewMatrix = baseModelViewMatrix;
-    setLightPosition(mult(modelViewMatrix, vec4(150, 100, 100, 1)));
+    setLightPosition(mult(modelViewMatrix, lightPosition));
 
     if (!sphereAttached && sphereX != null && sphereY != null && sphereZ != null)
         sphereAt(sphereX, sphereY, sphereZ);
