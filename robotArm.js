@@ -21,6 +21,8 @@ var Base = 0;
 var LowerArm = 1;
 var UpperArm = 2;
 
+var ARMS_ROTATION_SPEED = 0.5; // revolution per second
+var BASE_ROTATION_SPEED = 0.5;
 var theta = [0, 0, 0];
 
 var lightPosition = [3, 1.5, 4.5, 1];
@@ -188,7 +190,7 @@ function setTopView(isTopView) {
 }
 
 function fetchSphere(oldX, oldY, oldZ, newX, newY, newZ) {
-    const oldAngles = calculateAngles(oldX, oldY, oldZ);
+    let oldAngles = calculateAngles(oldX, oldY, oldZ);
     for (let angle of oldAngles) {
         if (isNaN(angle)) {
             alert(`The position (${oldX}, ${oldY}, ${oldZ}) is unreachable.`);
@@ -196,7 +198,7 @@ function fetchSphere(oldX, oldY, oldZ, newX, newY, newZ) {
         }
     }
 
-    const newAngles = calculateAngles(newX, newY, newZ);
+    let newAngles = calculateAngles(newX, newY, newZ);
     for (let angle of newAngles) {
         if (isNaN(angle)) {
             alert(`The position (${newX}, ${newY}, ${newZ}) is unreachable.`);
@@ -204,35 +206,74 @@ function fetchSphere(oldX, oldY, oldZ, newX, newY, newZ) {
         }
     }
 
-    startAngles = [0, 0, 0];
-    endAngles = oldAngles;
+    // Use the least amount of rotation possible
+    const finalAngles = [0, 0, 0]
+    optimizeTargetAngles([0, 0, 0], oldAngles);
+    optimizeTargetAngles(oldAngles, newAngles);
+    optimizeTargetAngles(newAngles, finalAngles);
+
     sphereX = oldX;
     sphereY = oldY;
     sphereZ = oldZ;
     sphereAttached = false;
+    const delay = 100;
 
-    startRotationAnimation(1000, 200, () => {
-        sphereAttached = true;
-        startAngles = oldAngles;
-        endAngles = newAngles;
+    chainAnimations([
+        { start: [0, 0, 0], end: [oldAngles[0], 0, 0], duration: calculateDuration(0, oldAngles[0], BASE_ROTATION_SPEED), delay },
+        { start: [oldAngles[0], 0, 0], end: [oldAngles[0], oldAngles[1], 0], duration: calculateDuration(0, oldAngles[1], ARMS_ROTATION_SPEED), delay },
+        { start: [oldAngles[0], oldAngles[1], 0], end: oldAngles, duration: calculateDuration(0, oldAngles[2], ARMS_ROTATION_SPEED), delay, callback: () => sphereAttached = true },
 
-        startRotationAnimation(1000, 200, () => {
-            sphereAttached = false;
-            sphereX = newX;
-            sphereY = newY;
-            sphereZ = newZ;
-            startAngles = newAngles;
-            endAngles = [0, 0, 0];
+        { start: [oldAngles[0], oldAngles[1], oldAngles[2]], end: [newAngles[0], oldAngles[1], oldAngles[2]], duration: calculateDuration(oldAngles[0], newAngles[0], BASE_ROTATION_SPEED), delay },
+        { start: [newAngles[0], oldAngles[1], oldAngles[2]], end: [newAngles[0], newAngles[1], oldAngles[2]], duration: calculateDuration(oldAngles[1], newAngles[1], ARMS_ROTATION_SPEED), delay },
+        {
+            start: [newAngles[0], newAngles[1], oldAngles[2]], end: [newAngles[0], newAngles[1], newAngles[2]], duration: calculateDuration(oldAngles[2], newAngles[2], ARMS_ROTATION_SPEED), delay, callback: () => {
+                sphereAttached = false;
+                sphereX = newX;
+                sphereY = newY;
+                sphereZ = newZ;
 
-            startRotationAnimation(1000, 200);
-        })
-    })
+            }
+        },
+
+        { start: [newAngles[0], newAngles[1], newAngles[2]], end: [finalAngles[0], newAngles[1], newAngles[2]], duration: calculateDuration(newAngles[0], finalAngles[0], BASE_ROTATION_SPEED), delay },
+        { start: [finalAngles[0], newAngles[1], newAngles[2]], end: [finalAngles[0], finalAngles[1], newAngles[2]], duration: calculateDuration(newAngles[1], finalAngles[1], ARMS_ROTATION_SPEED), delay },
+        { start: [finalAngles[0], finalAngles[1], newAngles[2]], end: finalAngles, duration: calculateDuration(newAngles[2], finalAngles[2], ARMS_ROTATION_SPEED), delay },
+    ])
 }
 
-function startRotationAnimation(duration, delay, callback) {
-    animationStartTime = lastTime + delay;
+function calculateDuration(startAngle, endAngle, speed) {
+    const diff = Math.abs(startAngle - endAngle);
+    if (diff <= 0.01) return 0;
+
+    const time = diff * 1000 / (Math.PI * 2) / speed;
+    return Math.max(time, 200); // make sure animation is not too fast
+}
+
+function startRotationAnimation(_startAngles, _endAngles, duration, delay, callback) {
+    startAngles = _startAngles;
+    endAngles = _endAngles;
+
+    if (duration == 0) delay = 0;
+
+    animationStartTime = lastTime + (delay || 0);
     animationDuration = duration;
     animationEndedCallback = callback;
+}
+
+function chainAnimations(animations) {
+    if (!animations) return;
+
+    for (let i = animations.length - 2; i >= 0; i--) {
+        let nextAnim = animations[i + 1];
+        let cb = animations[i].callback;
+        animations[i].callback = () => {
+            if (cb) cb();
+            startRotationAnimation(nextAnim.start, nextAnim.end, nextAnim.duration, nextAnim.delay, nextAnim.callback)
+        };
+    }
+
+    const firstAnim = animations[0];
+    startRotationAnimation(firstAnim.start, firstAnim.end, firstAnim.duration, firstAnim.delay, firstAnim.callback);
 }
 
 function calculateAngles(x, y, z) {
@@ -245,16 +286,29 @@ function calculateAngles(x, y, z) {
     const distance = Math.sqrt(y * y + horizontalDistanceSquared);
 
     const groundToSphere = Math.atan2(y, Math.sqrt(horizontalDistanceSquared));
-
+    
+    // Law of cosines
     const lowerArmToSphereCos = (LOWER_ARM_HEIGHT * LOWER_ARM_HEIGHT + distance * distance - (UPPER_ARM_HEIGHT + SPHERE_RADIUS) * (UPPER_ARM_HEIGHT + SPHERE_RADIUS)) / (2 * LOWER_ARM_HEIGHT * distance);
     const lowerArmToSphere = Math.acos(parseFloat(lowerArmToSphereCos.toFixed(6)));
     angles[LowerArm] = -(Math.PI / 2 - groundToSphere - lowerArmToSphere);
 
+    // Law of cosines
     const upperArmToLowerArmCos = (LOWER_ARM_HEIGHT * LOWER_ARM_HEIGHT + (UPPER_ARM_HEIGHT + SPHERE_RADIUS) * (UPPER_ARM_HEIGHT + SPHERE_RADIUS) - distance * distance) / (2 * LOWER_ARM_HEIGHT * (UPPER_ARM_HEIGHT + SPHERE_RADIUS));
     const upperArmToLowerArm = Math.acos(parseFloat(upperArmToLowerArmCos.toFixed(6)));
     angles[UpperArm] = -(Math.PI - upperArmToLowerArm);
 
     return angles;
+}
+
+function optimizeTargetAngles(startAngles, targetAngles) {
+    for (let i = 0; i < targetAngles.length; i++) {
+        if (startAngles[i] > targetAngles[i])
+            while (startAngles[i] - targetAngles[i] > Math.PI)
+                targetAngles[i] += (Math.PI * 2)
+        else
+            while (targetAngles[i] - startAngles[i] > Math.PI)
+                targetAngles[i] -= (Math.PI * 2)
+    }
 }
 
 //----------------------------------------------------------------------------
@@ -348,14 +402,15 @@ function sphereAt(x, y, z) {
 var render = function (time) {
     lastTime = time;
     if (animationStartTime != null && animationStartTime <= time) {
-        const elapsed = (time - animationStartTime) / animationDuration;
-        if (elapsed > 1) {
+        const t = (time - animationStartTime) / animationDuration;
+        if (isNaN(t) || t > 1) {
             animationStartTime = null;
             theta = [...endAngles];
             if (animationEndedCallback) animationEndedCallback();
         } else {
             for (let i = 0; i < theta.length; i++) {
-                theta[i] = startAngles[i] + (endAngles[i] - startAngles[i]) * elapsed;
+                // ease in-out interpolation
+                theta[i] = startAngles[i] + (endAngles[i] - startAngles[i]) * t * t * (3 - 2 * t);
             }
         }
     }
